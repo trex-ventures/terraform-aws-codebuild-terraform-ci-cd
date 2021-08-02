@@ -1,5 +1,5 @@
 locals {
-  name = "${var.product_domain}-terraform-aws"
+  name = "${var.product}-terraform-aws"
 
   #############
   # CI LOCALS #
@@ -100,8 +100,8 @@ locals {
 }
 
 module "aws_s3_bucket_artifact_name" {
-  source        = "github.com/traveloka/terraform-aws-resource-naming.git?ref=v0.19.1"
-  name_prefix   = "${var.product_domain}-terraform-ci-cd-${data.aws_caller_identity.current.account_id}"
+  source        = "github.com/trex-ventures/terraform-aws-resource-naming.git?ref=v0.20.0"
+  name_prefix   = "${var.product}-terraform-ci-cd-${data.aws_caller_identity.current.account_id}"
   resource_type = "s3_bucket"
 }
 
@@ -122,11 +122,9 @@ resource "aws_s3_bucket" "artifact" {
 
   tags = merge(
     var.additional_tags,
-    map("Name", local.name),
-    map("ProductDomain", var.product_domain),
-    map("Description", format("Artifact bucket for %s CodeBuild projects", local.name)),
-    map("Environment", var.environment),
-    map("ManagedBy", "terraform")
+    {
+      Description : format("Artifact bucket for %s CodeBuild projects", local.name)
+    },
   )
 }
 
@@ -144,8 +142,8 @@ resource "aws_s3_bucket_public_access_block" "block_public_access" {
 ######
 resource "aws_codebuild_project" "ci" {
   name          = "${local.name}-ci"
-  description   = "Build project on ${var.product_domain} infra repository which run Terraform CI"
-  service_role  = module.ci_codebuild_role.role_arn
+  description   = "Build project on ${var.product} infra repository which run Terraform CI"
+  service_role  = module.ci_codebuild_role.iam_role_arn
   build_timeout = "60"
 
   artifacts {
@@ -175,27 +173,27 @@ resource "aws_codebuild_project" "ci" {
     git_clone_depth     = 0
     report_build_status = true
   }
+}
 
-  tags = merge(
-    var.additional_tags,
-    map("ProductDomain", var.product_domain),
-    map("Environment", var.environment),
-    map("ManagedBy", "terraform")
-  )
+module "ci_codebuild_role_name" {
+  source        = "github.com/trex-ventures/terraform-aws-resource-naming.git?ref=v0.20.0"
+  name_prefix   = local.name
+  resource_type = "iam_role"
 }
 
 module "ci_codebuild_role" {
-  source = "github.com/traveloka/terraform-aws-iam-role.git//modules/service?ref=v2.0.2"
-
-  environment    = var.environment
-  product_domain = var.product_domain
-
-  role_identifier            = local.name
-  role_description           = "Service Role for ${local.name}"
-  role_force_detach_policies = true
-  role_max_session_duration  = 43200
-
-  aws_service = "codebuild.amazonaws.com"
+  source                = "terraform-aws-modules/iam/aws//modules/iam-assumable-role"
+  version               = "~> 4.0"
+  create_role           = true
+  force_detach_policies = true
+  role_name             = module.ci_codebuild_role_name.name
+  role_path             = "/service/codebuild/"
+  role_requires_mfa     = false
+  role_description      = "Service Role for ${local.name}"
+  max_session_duration  = 43200
+  trusted_role_services = [
+    "codebuild.amazonaws.com"
+  ]
 }
 
 resource "aws_codebuild_webhook" "ci" {
@@ -217,18 +215,18 @@ resource "aws_codebuild_webhook" "ci" {
 }
 
 resource "aws_iam_role_policy" "ci_main" {
-  name   = "${module.ci_codebuild_role.role_name}-main"
-  role   = module.ci_codebuild_role.role_name
+  name   = "${module.ci_codebuild_role.iam_role_name}-main"
+  role   = module.ci_codebuild_role.iam_role_name
   policy = data.aws_iam_policy_document.this.json
 }
 
 resource "aws_iam_role_policy_attachment" "ci_administrator_access" {
-  role       = module.ci_codebuild_role.role_name
+  role       = module.ci_codebuild_role.iam_role_name
   policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
 }
 
 resource "aws_iam_role_policy_attachment" "ci_ecr" {
-  role       = module.ci_codebuild_role.role_name
+  role       = module.ci_codebuild_role.iam_role_name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
 
@@ -237,8 +235,8 @@ resource "aws_iam_role_policy_attachment" "ci_ecr" {
 ######
 resource "aws_codebuild_project" "cd" {
   name          = "${local.name}-cd"
-  description   = "Build project on ${var.product_domain} infra repository which run Terraform CI"
-  service_role  = module.cd_codebuild_role.role_arn
+  description   = "Build project on ${var.product} infra repository which run Terraform CI"
+  service_role  = module.cd_codebuild_role.iam_role_arn
   build_timeout = "60"
 
   artifacts {
@@ -268,27 +266,27 @@ resource "aws_codebuild_project" "cd" {
     git_clone_depth     = 0
     report_build_status = true
   }
+}
 
-  tags = merge(
-    var.additional_tags,
-    map("ProductDomain", var.product_domain),
-    map("Environment", var.environment),
-    map("ManagedBy", "terraform")
-  )
+module "cd_codebuild_role_name" {
+  source        = "github.com/trex-ventures/terraform-aws-resource-naming.git?ref=v0.20.0"
+  name_prefix   = local.name
+  resource_type = "iam_role"
 }
 
 module "cd_codebuild_role" {
-  source = "github.com/traveloka/terraform-aws-iam-role.git//modules/service?ref=v2.0.2"
-
-  environment    = var.environment
-  product_domain = var.product_domain
-
-  role_identifier            = local.name
-  role_description           = "Service Role for ${local.name}"
-  role_force_detach_policies = true
-  role_max_session_duration  = 43200
-
-  aws_service = "codebuild.amazonaws.com"
+  source                = "terraform-aws-modules/iam/aws//modules/iam-assumable-role"
+  version               = "~> 4.0"
+  create_role           = true
+  force_detach_policies = true
+  role_name             = module.cd_codebuild_role_name.name
+  role_path             = "/service/codebuild/"
+  role_requires_mfa     = false
+  role_description      = "Service Role for ${local.name}"
+  max_session_duration  = 43200
+  trusted_role_services = [
+    "codebuild.amazonaws.com"
+  ]
 }
 
 resource "aws_codebuild_webhook" "cd" {
@@ -309,13 +307,7 @@ resource "aws_codebuild_webhook" "cd" {
   }
 }
 
-resource "aws_iam_role_policy" "cd_main" {
-  name   = "${module.cd_codebuild_role.role_name}-main"
-  role   = module.cd_codebuild_role.role_name
-  policy = data.aws_iam_policy_document.this.json
-}
-
 resource "aws_iam_role_policy_attachment" "cd_administrator_access" {
-  role       = module.cd_codebuild_role.role_name
+  role       = module.cd_codebuild_role.iam_role_name
   policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
 }

@@ -27,7 +27,7 @@ output "ci_buildspec" {
 }
 
 output "ci_role_name" {
-  value       = module.ci_codebuild_role.role_name
+  value       = module.ci_codebuild_role.iam_role_name
   description = "CI project's IAM role name"
 }
 
@@ -50,6 +50,6 @@ output "cd_buildspec" {
 }
 
 output "cd_role_name" {
-  value       = module.cd_codebuild_role.role_name
+  value       = module.cd_codebuild_role.iam_role_name
   description = "CD project's IAM role name"
 }

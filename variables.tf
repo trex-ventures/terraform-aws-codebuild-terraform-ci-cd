@@ -3,9 +3,9 @@ variable "terraform_version" {
   description = "The terraform version which will be used"
 }
 
-variable "product_domain" {
+variable "product" {
   type        = string
-  description = "The name of the product domain"
+  description = "The name of the product"
 }
 
 variable "environment" {
@@ -32,7 +32,7 @@ variable "compute_type" {
 
 variable "image" {
   type        = string
-  default     = "015110552125.dkr.ecr.ap-southeast-1.amazonaws.com/bei-codebuild-terraform-ci-cd-app:0.1.11"
+  default     = "786823103752.dkr.ecr.ap-southeast-1.amazonaws.com/build-terraform-ci-cd-app:v0.2.1"
   description = "Docker image used by CodeBuild"
 }
 
@@ -44,13 +44,13 @@ variable "image_credentials" {
 
 variable "github_app_id" {
   type        = string
-  default     = "18429"
+  default     = "129655"
   description = "Terraform CI/CD Github App ID"
 }
 
 variable "github_app_installation_id" {
   type        = string
-  default     = "7646288"
+  default     = "18633311"
   description = "Terraform CI/CD Github App Installation ID"
 }
 
